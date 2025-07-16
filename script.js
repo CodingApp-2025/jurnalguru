@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // =================================================================
     // CONFIGURATION
     // =================================================================
-    const SCRIPT_URL = 'MASUKKAN_URL_APPS_SCRIPT_ANDA_DI_SINI';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxz0zEDRHuVUvXVKSUbe3GXO9UlSou_vtj2yI1glQR0jRta6CMa6DFqliqgP-0Tdbel1A/exec';
     
     // =================================================================
     // GLOBAL STATE & VARIABLES
@@ -30,10 +30,47 @@ document.addEventListener('DOMContentLoaded', function() {
     const attendanceView = document.getElementById('attendanceView');
     const reportsView = document.getElementById('reportsView');
     
+    // --- Custom Confirm Modal Elements ---
+    const confirmModal = document.getElementById('confirmModal');
+    const confirmModalMessage = document.getElementById('confirmModalMessage');
+    const confirmModalOkBtn = document.getElementById('confirmModalOkBtn');
+    const confirmModalCancelBtn = document.getElementById('confirmModalCancelBtn');
+    
     // =================================================================
-    // INITIALIZATION
+    // INITIALIZATION & CORE LOGIC
     // =================================================================
+    let confirmCallback = null;
     checkSession();
+
+    // =================================================================
+    // CUSTOM MODAL LOGIC
+    // =================================================================
+    function showConfirmModal(message, onConfirm) {
+        confirmModalMessage.textContent = message;
+        confirmCallback = onConfirm;
+        
+        // Change button color for dangerous actions
+        if(message.toLowerCase().includes('hapus') || message.toLowerCase().includes('keluar')){
+            confirmModalOkBtn.className = 'px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700';
+        } else {
+            confirmModalOkBtn.className = 'px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700';
+        }
+
+        confirmModal.classList.remove('hidden');
+    }
+
+    confirmModalOkBtn.addEventListener('click', () => {
+        if (confirmCallback) {
+            confirmCallback();
+        }
+        confirmModal.classList.add('hidden');
+        confirmCallback = null;
+    });
+
+    confirmModalCancelBtn.addEventListener('click', () => {
+        confirmModal.classList.add('hidden');
+        confirmCallback = null;
+    });
 
     // =================================================================
     // AUTHENTICATION & ROUTING
@@ -104,11 +141,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // MODIFIED: Uses custom modal now
     document.getElementById('logoutBtn').addEventListener('click', () => {
-        if (confirm('Yakin ingin keluar?')) {
+        showConfirmModal('Yakin ingin keluar?', () => {
             localStorage.removeItem('currentUser');
+            currentUser = null;
+            journalEntries = [];
+            attendanceData = [];
             showAuth();
-        }
+        });
     });
 
     showRegisterBtn.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('loginView').classList.add('hidden'); document.getElementById('registerView').classList.remove('hidden'); });
@@ -243,14 +284,21 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('editClass').value = entry.class; document.getElementById('editSubject').value = entry.subject; document.getElementById('editActivity').value = entry.activity;
             document.getElementById('entryDetailModal').classList.add('hidden'); document.getElementById('editEntryModal').classList.remove('hidden');
         };
-        document.getElementById('deleteEntryBtn').onclick = async () => {
-            if (confirm('Yakin hapus jurnal ini?')) {
+        // MODIFIED: Uses custom modal now
+        document.getElementById('deleteEntryBtn').onclick = () => {
+            showConfirmModal('Yakin hapus jurnal ini?', async () => {
                 showLoader(true);
-                try { await callAppsScript('deleteJournal', { entryId: entry.id, userEmail: currentUser.email });
+                try { 
+                    await callAppsScript('deleteJournal', { entryId: entry.id, userEmail: currentUser.email });
                     journalEntries = journalEntries.filter(j => j.id !== entry.id);
-                    updateDashboard(); document.getElementById('entryDetailModal').classList.add('hidden');
-                } catch (e) { alert(`Error: ${e.message}`); } finally { showLoader(false); }
-            }
+                    updateDashboard(); 
+                    document.getElementById('entryDetailModal').classList.add('hidden');
+                } catch (e) { 
+                    alert(`Error: ${e.message}`); 
+                } finally { 
+                    showLoader(false); 
+                }
+            });
         };
         document.getElementById('entryDetailModal').classList.remove('hidden');
     }
@@ -428,6 +476,3 @@ document.addEventListener('DOMContentLoaded', function() {
         return new Date(dateString).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
     }
 });
-    </script>
-</body>
-</html>```
